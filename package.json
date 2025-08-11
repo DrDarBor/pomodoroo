@@ -1,0 +1,17 @@
+{
+  "name": "pomodoro-capacitor",
+  "version": "1.0.0",
+  "description": "Pomodoro App with offline local notifications using Capacitor",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/local-notifications": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}

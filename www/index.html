@@ -1,0 +1,1032 @@
+﻿<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>پومودورو — Dark Modern (Redesigned UI)</title>
+
+<!-- Tailwind utilities, Chart.js, jalali-moment -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jalali-moment/dist/jalali-moment.browser.js"></script>
+
+<style>
+:root{
+  --bg:#07080d; --panel:#0b1220; --muted:#9fb9cc; --text:#e8f6ff;
+  --accent1:#8b5cf6; --accent2:#06bfa6; --warn:#f59e0b; --danger:#ef4444;
+  --glass: rgba(255,255,255,0.03);
+  --radius:12px; --shadow: 0 10px 40px rgba(2,6,23,0.65); --smooth:240ms cubic-bezier(.2,.8,.2,1);
+  --ui-w:1180px; --right-w:420px;
+  font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Page layout: single scroll (body scrolls) */
+html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),#04060a);color:var(--text);-webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;}
+.container{max-width:var(--ui-w);margin:28px auto;padding:18px;box-sizing:border-box;}
+
+/* small top progress bar (no text) */
+.top-progress-wrap{height:6px;width:100%;background:rgba(255,255,255,0.02);border-radius:6px;overflow:hidden;margin-bottom:12px;border:1px solid rgba(255,255,255,0.02);}
+.top-progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent1),var(--accent2));transition:width var(--smooth) ease;}
+
+/* header */
+.header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;}
+.brand{display:flex;gap:12px;align-items:center;}
+.logo{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--accent1),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:900;color:#021018;box-shadow:0 12px 36px rgba(139,92,246,0.14);}
+.title{font-weight:900;font-size:18px;}
+
+/* top controls */
+.top-controls{display:flex;gap:8px;align-items:center;}
+.btn{background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid var(--glass);padding:8px 12px;border-radius:10px;color:var(--text);cursor:pointer;transition:transform var(--smooth),box-shadow var(--smooth);font-weight:700;}
+.btn:hover{transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,0.5);}
+.primary{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#021018;padding:9px 14px;border-radius:10px;border:none;font-weight:900;}
+
+/* main grid: two-column but scroll is page-level */
+.main{display:grid;grid-template-columns:1fr var(--right-w);gap:16px;align-items:start;}
+@media (max-width:1100px){ .main{grid-template-columns:1fr;} }
+
+/* Cards */
+.card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:14px;border:1px solid var(--glass);box-shadow:var(--shadow);box-sizing:border-box;}
+
+/* inputs */
+input[type="number"], input[type="time"], input[type="text"]{background:transparent;border:1px solid var(--glass);color:var(--text);padding:8px;border-radius:10px;outline:none;font-weight:700;}
+input:focus{box-shadow:0 8px 30px rgba(139,92,246,0.06);border-color:rgba(139,92,246,0.45);}
+
+/* schedule table — will be inside a scrollable box */
+.schedule{margin-top:8px;}
+.schedule-scroll{max-height:360px;overflow:auto;padding-right:6px;} /* <-- user requested scrollable box for "برنامه امروز" */
+table{width:100%;border-collapse:separate;border-spacing:0 8px;}
+thead th{color:var(--muted);font-size:12px;padding-bottom:8px;text-align:center;font-weight:800;}
+tbody td{padding:10px;font-weight:800;color:var(--text);vertical-align:middle;border-radius:10px;background:transparent;}
+.row-pom td{background:linear-gradient(90deg, rgba(139,92,246,0.06), rgba(6,191,166,0.03));border-left:4px solid rgba(139,92,246,0.95);border-radius:10px;}
+.row-rest td{background:linear-gradient(90deg, rgba(6,191,166,0.06), rgba(6,191,166,0.02));border-left:4px solid rgba(6,191,166,0.95);border-radius:10px;}
+.row-long td{background:linear-gradient(90deg, rgba(245,158,11,0.06), rgba(245,158,11,0.02));border-left:4px solid rgba(245,158,11,0.95);border-radius:10px;}
+.current-row td{box-shadow:0 18px 48px rgba(139,92,246,0.06);transform:translateY(-6px);}
+
+/* tasks */
+.tasks{display:flex;flex-direction:column;gap:8px;}
+.task-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.02);}
+
+/* charts: reserve space via aspect-ratio — prevents layout jumps */
+.charts{display:flex;flex-direction:column;gap:12px;align-items:center;}
+.clock-container{width:100%;max-width:360px;}
+canvas.clock{width:100%;height:auto;aspect-ratio:1/1;border-radius:12px;background:transparent;}
+
+/* progress small box */
+.progress-box{width:220px;height:130px;}
+
+/* footnote */
+.note{color:var(--muted);font-size:13px;}
+
+/* modal & panels */
+#timeOffModal{display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:rgba(2,6,12,0.65);z-index:1400;}
+.modal{width:420px;border-radius:12px;background:var(--panel);padding:14px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 20px 60px rgba(0,0,0,0.6);}
+#segmentPanel{position:fixed;left:18px;bottom:18px;z-index:1300;min-width:220px;max-width:360px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid var(--glass);padding:12px;display:none;box-shadow:var(--shadow);}
+.tooltip{position:fixed;z-index:1600;pointer-events:none;background:linear-gradient(180deg, rgba(6,18,30,0.95), rgba(10,26,40,0.98));color:var(--text);padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 12px 40px rgba(2,6,23,0.7);font-weight:800;font-size:13px;display:none;}
+
+/* responsive tweaks */
+@media (max-width:420px){ .logo{width:40px;height:40px;} .primary{padding:8px 10px;} }
+</style>
+</head>
+<body>
+<div class="container" id="app">
+
+  <!-- small progress bar (top of page, no text) -->
+  <div class="top-progress-wrap"><div id="topProgressBar" class="top-progress-bar"></div></div>
+
+  <header class="header" role="banner">
+    <div class="brand">
+      <div class="logo">P</div>
+      <div>
+        <div class="title">پومودورو — Dark Modern</div>
+      </div>
+    </div>
+
+    <div class="top-controls">
+      <label class="note" style="display:flex;align-items:center;gap:8px;">صدا <input id="soundToggle" type="checkbox" /></label>
+      <button id="resetBtn" class="btn">ریست</button>
+    </div>
+  </header>
+
+  <main class="main" role="main">
+    <!-- LEFT column (flows with page) -->
+    <section>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:900;">ساخت برنامه پومودورو</div>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:center;">
+            <input id="pomCount" type="number" min="1" placeholder="تعداد" style="width:96px;" />
+            <input id="startTime" type="time" style="width:120px;" />
+            <button id="buildBtn" class="primary">ساخت برنامه</button>
+            <button id="startBtn" class="btn">شروع/ادامه</button>
+            <button id="pauseBtn" class="btn">توقف</button>
+          </div>
+        </div>
+        <div id="sleepWarning" style="margin-top:10px;display:none;color:var(--warn);font-weight:900;"></div>
+      </div>
+
+      <div id="timerCard" class="card" style="margin-top:14px;display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:700;">مرحله فعلی</div>
+            <div id="currentStepText" style="font-weight:900;font-size:16px;margin-top:6px;">--</div>
+          </div>
+          <div style="text-align:center;">
+            <div id="countdown" style="font-weight:900;font-size:30px;color:var(--accent2);">--:--:--</div>
+            <div id="nextInfo" class="note" style="margin-top:6px;">تا پایان</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-weight:900;">برنامه امروز</div>
+        </div>
+
+        <!-- requested: make this box scrollable; summary below must remain unchanged -->
+        <div class="schedule schedule-scroll" id="scheduleWrap" style="margin-top:10px;">
+          <table id="scheduleTable" aria-hidden="false"></table>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;">
+          <button id="toggleAllRests" class="btn">تبدیل همه استراحت‌ها</button>
+          <button id="addTimeOffBtn" class="btn">افزودن Time Off</button>
+          <button id="shiftScheduleBtn" class="btn">شیفت برنامه</button>
+          <button id="fastFinishBtn" class="btn">پایان سریع</button>
+        </div>
+
+        <!-- keep summary block unchanged (not scrollable) -->
+        <pre id="scheduleBlock" style="margin-top:12px;color:var(--muted);white-space:pre-wrap;"></pre>
+      </div>
+    </section>
+
+    <!-- RIGHT column -->
+    <aside>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <strong>تو‌دو لیست</strong>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input id="taskInput" type="text" placeholder="" style="flex:1;" />
+          <button id="addTaskBtn" class="primary">افزودن</button>
+        </div>
+        <div id="tasksList" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="card" style="margin-top:14px;">
+        <div style="text-align:center;">
+          <div id="dailyPersianDate" style="font-weight:900;font-size:15px;">--</div>
+          <div id="dailyClockTime" class="note" style="color:var(--accent2);margin-top:6px;">--:--:--</div>
+        </div>
+
+        <div class="charts" style="margin-top:10px;">
+          <div class="clock-container">
+            <canvas id="dailyClock" class="clock" width="360" height="360" aria-label="نمودار ساعت روز"></canvas>
+          </div>
+
+          <div style="display:flex;gap:12px;justify-content:center;align-items:center;margin-top:8px;flex-wrap:wrap;">
+            <div style="text-align:center;">
+              <div style="margin-bottom:6px;color:var(--muted);font-weight:700;">پیشرفت فعلی</div>
+              <div class="progress-box"><canvas id="progressChart" style="width:100%;height:100%;"></canvas></div>
+            </div>
+
+            <div style="text-align:center;">
+              <div style="margin-bottom:6px;color:var(--muted);font-weight:700;">پیشرفت امروز</div>
+              <div id="remainingPoms" style="font-weight:900;">--</div>
+            </div>
+          </div>
+
+          <div class="note" style="margin-top:10px;color:var(--muted);text-align:center;">نمودار ساعت: بازه‌ی ۶:۰۰ تا ۲۴:۰۰ — نمایش کل برنامه و نشانگر زمان جاری</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer style="margin-top:18px;text-align:center;color:var(--muted);font-size:13px;">ذخیره خودکار فعال است — اجازه نوتیف و صدا را به مرورگر بدهید — کلیدها: Space = شروع/توقف · N = مرحله بعد</footer>
+</div>
+
+<!-- TimeOff Modal -->
+<div id="timeOffModal">
+  <div class="modal">
+    <h3 style="margin:0 0 8px 0;">افزودن Time Off</h3>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <input id="toStartTime" type="time" style="flex:1;" />
+      <input id="toMinutes" type="number" placeholder="دقیقه" style="width:110px;" />
+    </div>
+    <input id="toLabel" type="text" placeholder="عنوان (اختیاری)" style="width:100%;margin-bottom:10px;" />
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button id="toCancel" class="btn">لغو</button>
+      <button id="toSave" class="primary">افزودن</button>
+    </div>
+  </div>
+</div>
+
+<!-- Segment panel & tooltip -->
+<div id="segmentPanel">
+  <h4 id="segTitle">جزئیات</h4>
+  <div id="segMeta" style="color:var(--muted);font-size:13px;margin-top:6px;">—</div>
+  <div style="height:8px;"></div>
+  <div style="display:flex;justify-content:flex-end;"><button id="segClose" class="btn">بستن</button></div>
+</div>
+<div id="clockTooltip" class="tooltip"></div>
+
+<script>
+/* ============================
+   Complete Pomodoro app (modified per request)
+   - Removed explanatory helper texts.
+   - Removed Fullscreen & Suggest buttons.
+   - "برنامه امروز" is inside a scrollable box (.schedule-scroll).
+   - Added top small progress bar (#topProgressBar) (no text).
+   - Preserved all previous features and JS logic; ensured safe DOM checks.
+   ============================ */
+
+const STORAGE_KEY = 'pomodoro_redesign_v2';
+const TASKS_KEY = 'pomodoro_tasks_redesign_v2';
+const DEFAULTS = { pomMinutes:30, shortBreak:5, longBreak:20, longAfter:4 };
+
+let state = { plan:[], totalPoms:0, running:false, notified:{}, stats:{}, currentStepIndex:-1 };
+let tasks = [];
+let liveInterval = null;
+let progressChart = null;
+let audioCtx = null;
+let lastClockData = null;
+let lastCanvasClientWidth = 0;
+
+const DOM = {};
+
+/* helpers */
+function now(){ return new Date(); }
+function pad(n){ return String(n).padStart(2,'0'); }
+function msMin(m){ return m*60000; }
+function formatHM(d){ const dt = (typeof d === 'string')? new Date(d) : d; return pad(dt.getHours()) + ':' + pad(dt.getMinutes()); }
+function formatHMS(d){ const dt = (typeof d === 'number')? new Date(d) : new Date(d); return pad(dt.getHours()) + ':' + pad(dt.getMinutes()) + ':' + pad(dt.getSeconds()); }
+function saveState(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
+function loadState(){ try{ const raw = localStorage.getItem(STORAGE_KEY); if(raw) state = JSON.parse(raw); if(!state.notified) state.notified={}; if(!state.stats) state.stats={}; if(typeof state.currentStepIndex==='undefined') state.currentStepIndex=-1; }catch(e){} }
+function loadTasks(){ try{ const raw = localStorage.getItem(TASKS_KEY); tasks = raw ? JSON.parse(raw) : []; }catch(e){ tasks=[]; } renderTasks(); }
+function saveTasks(){ try{ localStorage.setItem(TASKS_KEY, JSON.stringify(tasks)); }catch(e){} }
+
+/* Tasks */
+function addTask(text){ if(!text||!text.trim()) return; tasks.unshift({ id:'t-'+Date.now(), text:text.trim(), done:false }); saveTasks(); renderTasks(); }
+function toggleTask(id){ const t=tasks.find(x=>x.id===id); if(!t) return; t.done=!t.done; saveTasks(); renderTasks(); }
+function removeTask(id){ tasks = tasks.filter(x=>x.id!==id); saveTasks(); renderTasks(); }
+function renderTasks(){ const container = DOM.tasksList; container.innerHTML=''; if(!tasks.length){ container.innerHTML = '<div style="color:var(--muted)">هیچ کاری اضافه نشده</div>'; return; } for(const t of tasks){ const div = document.createElement('div'); div.className='task-item'; div.style.display='flex'; div.style.justifyContent='space-between'; div.style.alignItems='center'; div.style.marginTop='6px'; const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='10px'; const chk = document.createElement('input'); chk.type='checkbox'; chk.checked = !!t.done; chk.addEventListener('change', ()=> toggleTask(t.id)); const title = document.createElement('div'); title.textContent = t.text; title.style.fontWeight='800'; left.appendChild(chk); left.appendChild(title); const del = document.createElement('button'); del.className='btn'; del.textContent='حذف'; del.addEventListener('click', ()=> removeTask(t.id)); div.appendChild(left); div.appendChild(del); container.appendChild(div);} }
+
+/* Audio */
+function isSoundEnabled(){ return localStorage.getItem('pom_sound_pref') !== 'false'; }
+function applySoundToggleUI(){ if(!DOM.soundToggle) return; DOM.soundToggle.checked = isSoundEnabled(); DOM.soundToggle.addEventListener('change', ()=> localStorage.setItem('pom_sound_pref', DOM.soundToggle.checked ? 'true' : 'false')); }
+function beep(type='short'){
+  try{
+    if(!isSoundEnabled()) return;
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = audioCtx.currentTime; const master = audioCtx.createGain(); master.connect(audioCtx.destination);
+    if(type==='start'){
+      master.gain.value = 0.6;
+      const o1 = audioCtx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=1000;
+      const o2 = audioCtx.createOscillator(); o2.type='square'; o2.frequency.value=640;
+      const g1 = audioCtx.createGain(), g2 = audioCtx.createGain();
+      o1.connect(g1); o2.connect(g2); g1.connect(master); g2.connect(master);
+      g1.gain.setValueAtTime(0.001, t0); g1.gain.exponentialRampToValueAtTime(0.5, t0+0.02); g1.gain.exponentialRampToValueAtTime(0.001, t0+0.55);
+      g2.gain.setValueAtTime(0.001, t0); g2.gain.exponentialRampToValueAtTime(0.38, t0+0.02); g2.gain.exponentialRampToValueAtTime(0.001, t0+0.55);
+      o1.start(t0); o2.start(t0); o1.stop(t0+0.6); o2.stop(t0+0.6); return;
+    }
+    master.gain.value = 0.06;
+    const o = audioCtx.createOscillator(); o.type='sine';
+    if(type==='rest') o.frequency.value=720; else if(type==='end') o.frequency.value=420; else if(type==='alert') o.frequency.value=1100; else o.frequency.value=700;
+    o.connect(master); master.gain.setValueAtTime(master.gain.value||0.06,t0); master.gain.exponentialRampToValueAtTime(0.0001,t0+0.5);
+    o.start(); setTimeout(()=>{ try{ o.stop(); }catch(e){} },500);
+  }catch(e){ console.error(e); }
+}
+
+/* Plan builders and helpers */
+function parseHMToToday(hm){
+  const parts = (hm||'').split(':').map(x=>parseInt(x,10));
+  if(parts.length<2 || isNaN(parts[0])||isNaN(parts[1])) { const d=new Date(); return d; }
+  const d=new Date(); d.setHours(parts[0], parts[1], 0, 0); return d;
+}
+function buildPlan(pomCount, startHM){
+  const plan=[]; let cursor = parseHMToToday(startHM);
+  for(let i=1;i<=pomCount;i++){
+    const s=new Date(cursor), e=new Date(s.getTime()+msMin(DEFAULTS.pomMinutes));
+    plan.push({ id:`p-${i}-${Date.now()}`, label:`پومودورو ${i}`, type:'pomodoro', isLongRest:false, duration:DEFAULTS.pomMinutes, startISO:s.toISOString(), endISO:e.toISOString() });
+    cursor = new Date(e);
+    if(i < pomCount){
+      const isLong = (i % DEFAULTS.longAfter === 0);
+      const dur = isLong ? DEFAULTS.longBreak : DEFAULTS.shortBreak;
+      const rs = new Date(cursor), re = new Date(rs.getTime()+msMin(dur));
+      plan.push({ id:`r-${i}-${Date.now()}`, label: isLong ? 'استراحت بلند 🟥' : 'استراحت کوتاه', type:'rest', isLongRest:isLong, duration:dur, startISO:rs.toISOString(), endISO:re.toISOString() });
+      cursor = new Date(re);
+    }
+  }
+  return plan;
+}
+function recomputeTimesFromStart(){
+  if(!state.plan.length) return;
+  let cursor = new Date(state.plan[0].startISO);
+  for(let i=0;i<state.plan.length;i++){
+    const dur = state.plan[i].duration;
+    state.plan[i].startISO = cursor.toISOString();
+    cursor = new Date(cursor.getTime() + msMin(dur));
+    state.plan[i].endISO = cursor.toISOString();
+  }
+}
+
+/* edit / toggle rest */
+function toggleRestType(index){
+  const step = state.plan[index];
+  if(!step || step.type!=='rest') return;
+  step.isLongRest = !step.isLongRest;
+  step.duration = step.isLongRest ? DEFAULTS.longBreak : DEFAULTS.shortBreak;
+  step.label = step.isLongRest ? 'استراحت بلند 🟥' : 'استراحت کوتاه';
+  recomputeTimesFromStart(); saveState(); renderTable(); updateScheduleBlock(); updateAllCharts();
+}
+function editStepDuration(index){
+  const step = state.plan[index]; if(!step) return;
+  const raw = prompt(`مدت جدید برای "${step.label}" (دقیقه):`, String(step.duration));
+  if(!raw) return; const minutes = parseInt(raw,10);
+  if(isNaN(minutes) || minutes<=0){ alert('مدت نامعتبر'); return; }
+  const start = new Date(step.startISO);
+  step.duration = minutes; step.endISO = new Date(start.getTime()+msMin(minutes)).toISOString();
+  for(let i=index+1;i<state.plan.length;i++){
+    const prevEnd = new Date(state.plan[i-1].endISO), dur = state.plan[i].duration;
+    state.plan[i].startISO = prevEnd.toISOString();
+    state.plan[i].endISO = new Date(prevEnd.getTime() + msMin(dur)).toISOString();
+  }
+  saveState(); renderTable(); updateScheduleBlock(); updateAllCharts();
+}
+
+/* TimeOff insertion */
+function addTimeOffAt(startHM, minutes, label='Time Off'){
+  if(!minutes || minutes<=0) return;
+  const requestedStart = parseHMToToday(startHM);
+  let insideIndex = -1;
+  for(let i=0;i<state.plan.length;i++){
+    const s=new Date(state.plan[i].startISO), e=new Date(state.plan[i].endISO);
+    if(requestedStart >= s && requestedStart < e){ insideIndex = i; break; }
+  }
+  if(insideIndex !== -1){
+    const orig = state.plan[insideIndex], origStart=new Date(orig.startISO), origEnd=new Date(orig.endISO);
+    if(requestedStart.getTime() === origStart.getTime()){
+      const newStep = { id:`to-${Date.now()}`, label:`${label} (${minutes} دقیقه)`, type:'rest', isLongRest:true, duration:minutes, startISO:requestedStart.toISOString(), endISO:new Date(requestedStart.getTime()+msMin(minutes)).toISOString() };
+      state.plan.splice(insideIndex,0,newStep);
+    } else {
+      const firstDur = Math.round((requestedStart.getTime()-origStart.getTime())/60000);
+      const secondDur = Math.round((origEnd.getTime()-requestedStart.getTime())/60000);
+      orig.endISO = requestedStart.toISOString(); orig.duration = firstDur;
+      const timeOff = { id:`to-${Date.now()}`, label:`${label} (${minutes} دقیقه)`, type:'rest', isLongRest:true, duration:minutes, startISO:requestedStart.toISOString(), endISO:new Date(requestedStart.getTime()+msMin(minutes)).toISOString() };
+      const secondStart = new Date(requestedStart.getTime()+msMin(minutes));
+      const secondEnd = new Date(origEnd.getTime()+msMin(minutes));
+      const secondPart = { id:`sp-${Date.now()}`, label: orig.label + ' (ادامه)', type: orig.type, isLongRest: orig.isLongRest||false, duration: secondDur, startISO: secondStart.toISOString(), endISO: secondEnd.toISOString() };
+      state.plan.splice(insideIndex+1,0,timeOff,secondPart);
+    }
+  } else {
+    let insertIndex = state.plan.findIndex(p => new Date(p.startISO) > requestedStart);
+    if(insertIndex === -1) insertIndex = state.plan.length;
+    const newStep = { id:`to-${Date.now()}`, label:`${label} (${minutes} دقیقه)`, type:'rest', isLongRest:true, duration:minutes, startISO:requestedStart.toISOString(), endISO:new Date(requestedStart.getTime()+msMin(minutes)).toISOString() };
+    state.plan.splice(insertIndex,0,newStep);
+  }
+  recomputeTimesFromStart();
+  for(let i=0;i<state.plan.length;i++){
+    const s=new Date(state.plan[i].startISO), e=new Date(state.plan[i].endISO);
+    state.plan[i].duration = Math.round((e.getTime()-s.getTime())/60000);
+  }
+  saveState(); renderTable(); updateScheduleBlock(); updateAllCharts();
+}
+
+/* shift & fast finish */
+function shiftEntireScheduleBy(minutes){
+  if(!minutes || isNaN(minutes)) return;
+  for(let i=0;i<state.plan.length;i++){
+    const s=new Date(state.plan[i].startISO), e=new Date(state.plan[i].endISO);
+    state.plan[i].startISO = new Date(s.getTime()+msMin(minutes)).toISOString();
+    state.plan[i].endISO = new Date(e.getTime()+msMin(minutes)).toISOString();
+  }
+  saveState(); renderTable(); updateScheduleBlock(); updateAllCharts();
+}
+function fastFinishCurrent(){
+  const idx = state.currentStepIndex;
+  if(idx===-1 || !state.plan.length){ alert('هیچ مرحله فعالی وجود ندارد.'); return; }
+  const nowDate = now(); const current = state.plan[idx]; const origEnd = new Date(current.endISO);
+  if(nowDate.getTime() >= origEnd.getTime()) return;
+  const deltaMs = origEnd.getTime() - nowDate.getTime();
+  current.endISO = nowDate.toISOString(); current.duration = Math.round((new Date(current.endISO)-new Date(current.startISO))/60000);
+  for(let j=idx+1;j<state.plan.length;j++){
+    const s=new Date(state.plan[j].startISO), e=new Date(state.plan[j].endISO);
+    state.plan[j].startISO = new Date(s.getTime()-deltaMs).toISOString();
+    state.plan[j].endISO = new Date(e.getTime()-deltaMs).toISOString();
+    state.plan[j].duration = Math.round((new Date(state.plan[j].endISO)-new Date(state.plan[j].startISO))/60000);
+  }
+  saveState(); renderTable(); updateScheduleBlock(); updateAllCharts();
+  if(state.running) startLiveTracking();
+}
+
+/* render schedule table (flows with page) */
+function renderTable(){
+  const table = DOM.scheduleTable; table.innerHTML = '';
+  const thead = document.createElement('thead');
+  thead.innerHTML = `<tr>
+    <th>مرحله</th><th>شروع</th><th>پایان</th><th>مدت</th><th>عملیات</th>
+  </tr>`;
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+
+  for(let idx=0; idx<state.plan.length; idx++){
+    const step = state.plan[idx];
+    const tr = document.createElement('tr');
+    const tdLabel = document.createElement('td'); tdLabel.textContent = step.label; tdLabel.style.textAlign='center';
+    const tdStart = document.createElement('td'); tdStart.textContent = formatHM(new Date(step.startISO)); tdStart.style.textAlign='center';
+    const tdEnd = document.createElement('td'); tdEnd.textContent = formatHM(new Date(step.endISO)); tdEnd.style.textAlign='center';
+    const tdDur = document.createElement('td'); tdDur.textContent = step.duration + ' دقیقه'; tdDur.style.textAlign='center';
+    const tdOps = document.createElement('td'); tdOps.style.textAlign='center';
+    const editBtn = document.createElement('button'); editBtn.className='btn'; editBtn.textContent='ویرایش'; editBtn.addEventListener('click',(ev)=>{ ev.stopPropagation(); editStepDuration(idx); });
+    tdOps.appendChild(editBtn);
+    tr.appendChild(tdLabel); tr.appendChild(tdStart); tr.appendChild(tdEnd); tr.appendChild(tdDur); tr.appendChild(tdOps);
+
+    // class
+    if(step.type==='pomodoro') tr.className='row-pom';
+    else if(step.isLongRest) tr.className='row-long';
+    else tr.className='row-rest';
+    if(idx === state.currentStepIndex) tr.classList.add('current-row');
+
+    if(step.type === 'rest'){
+      tr.title='کلیک برای تبدیل استراحت کوتاه ↔ بلند';
+      tr.style.cursor='pointer';
+      tr.addEventListener('click', ()=> toggleRestType(idx));
+    }
+
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+}
+
+/* schedule summary */
+function minutesToHoursText(mins){ const hours = mins/60; return (Math.round(hours)===hours) ? `${hours.toFixed(0)} ساعت` : `${hours.toFixed(1)} ساعت`; }
+function updateScheduleBlock(){
+  const pre = DOM.scheduleBlock;
+  if(!state.plan.length){ pre.textContent=''; return; }
+  const startHM = formatHM(new Date(state.plan[0].startISO));
+  const lines = state.plan.map(p => { const s = formatHM(new Date(p.startISO)); const e = formatHM(new Date(p.endISO)); const emoji = p.type==='pomodoro' ? '🟦' : (p.isLongRest ? '🟥' : ''); return `${s} - ${e}    | ${p.label} ${emoji}`; });
+  const totalStudy = state.plan.filter(x=>x.type==='pomodoro').reduce((a,b)=>a+b.duration,0);
+  const shortBreak = state.plan.filter(x=>x.type==='rest' && !x.isLongRest).reduce((a,b)=>a+b.duration,0);
+  const longBreak = state.plan.filter(x=>x.type==='rest' && x.isLongRest).reduce((a,b)=>a+b.duration,0);
+  const out = `🗓️ شروع از ساعت ${startHM}\n\n` + lines.join('\n') + `\n\n📊 جمع کل:\nمطالعه: ${minutesToHoursText(totalStudy)}\nاستراحت کوتاه: ${minutesToHoursText(shortBreak)}\nاستراحت بلند: ${minutesToHoursText(longBreak)}`;
+  pre.textContent = out;
+}
+
+/* live tracking */
+function findCurrentStepIndex(){
+  const nowDate = now();
+  for(let i=0;i<state.plan.length;i++){
+    const s=new Date(state.plan[i].startISO), e=new Date(state.plan[i].endISO);
+    if(nowDate >= s && nowDate < e) return i;
+  }
+  return -1;
+}
+function startLiveTracking(){
+  if(liveInterval) clearInterval(liveInterval);
+  if(!state.plan.length) return;
+  DOM.timerCard.style.display='block';
+  state.running = true; saveState();
+  liveInterval = setInterval(()=> {
+    try{
+      const nowDate = now();
+      const idx = findCurrentStepIndex();
+      if(idx !== -1){
+        if(state.currentStepIndex !== idx){
+          state.currentStepIndex = idx; renderTable();
+          // scroll the row into view (page scroll)
+          const rows = DOM.scheduleTable.querySelectorAll('tbody tr');
+          if(rows[idx]) rows[idx].scrollIntoView({behavior:'smooth', block:'center'});
+          const step = state.plan[idx];
+          notifyDesktop(`شروع ${step.label}`, `${formatHM(new Date(step.startISO))} — ${formatHM(new Date(step.endISO))}`);
+          if(step.type==='pomodoro') beep('start'); else beep('rest');
+          state.notified[step.id] = state.notified[step.id] || {}; state.notified[step.id].started = true; saveState();
+        }
+        const step = state.plan[idx];
+        const endDate = new Date(step.endISO);
+        const remainingSec = Math.max(0, Math.floor((endDate - nowDate)/1000));
+        updateCountdownUI(remainingSec, step);
+        if(remainingSec <= 60 && (!state.notified[step.id] || !state.notified[step.id].pre)){
+          notifyDesktop(`۱ دقیقه تا پایان ${step.label}`, ''); beep('alert'); state.notified[step.id] = state.notified[step.id] || {}; state.notified[step.id].pre = true; saveState();
+        }
+      } else {
+        const lastEnd = state.plan.length ? new Date(state.plan[state.plan.length-1].endISO) : null;
+        if(lastEnd && nowDate >= lastEnd){ state.currentStepIndex = -1; renderTable(); DOM.currentStepText.textContent = 'برنامه تمام شد'; DOM.countdown.textContent='--:--:--'; }
+        else { state.currentStepIndex = -1; renderTable(); DOM.currentStepText.textContent = 'هیچ مرحله فعالی وجود ندارد'; DOM.countdown.textContent='--:--:--'; }
+      }
+      recordCompletedPoms(); updateAllCharts();
+    }catch(e){ console.error(e); }
+  },1000);
+}
+function stopLiveTracking(){ if(liveInterval) clearInterval(liveInterval); state.running=false; saveState(); }
+
+/* countdown ui */
+function updateCountdownUI(secondsLeft, step){
+  const h = Math.floor(secondsLeft/3600); const m = Math.floor((secondsLeft%3600)/60); const s = secondsLeft%60;
+  DOM.currentStepText.textContent = `${step.label} — ${step.type==='pomodoro' ? 'مطالعه' : (step.isLongRest ? 'استراحت بلند' : 'استراحت کوتاه')}`;
+  DOM.countdown.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+  DOM.nextInfo.textContent = `تا پایان ${formatHM(new Date(step.endISO))}`;
+}
+
+/* completed poms */
+function recordCompletedPoms(){
+  const nowDate = now();
+  for(const step of state.plan){
+    if(step.type==='pomodoro'){
+      const end = new Date(step.endISO);
+      if(nowDate >= end){
+        const dayKey = end.toISOString().slice(0,10);
+        if(!state.stats[dayKey]) state.stats[dayKey] = { donePoms:0, recordedIds:{} };
+        if(!state.stats[dayKey].recordedIds) state.stats[dayKey].recordedIds = {};
+        if(!state.stats[dayKey].recordedIds[step.id]){
+          state.stats[dayKey].donePoms += 1;
+          state.stats[dayKey].recordedIds[step.id] = true; saveState();
+        }
+      }
+    }
+  }
+}
+
+/* remaining poms cal */
+function calculateRemainingPomsFrom(nowDate){
+  const startOfCounting = new Date(nowDate); startOfCounting.setHours(6,0,0,0);
+  let cursor = new Date(nowDate); if(cursor < startOfCounting) cursor = startOfCounting;
+  const endOfCounting = new Date(nowDate); endOfCounting.setHours(24,0,0,0);
+  let count = 0; let cycleCount = 0;
+  while(true){
+    const pomEnd = new Date(cursor.getTime() + msMin(DEFAULTS.pomMinutes));
+    if(pomEnd > endOfCounting) break;
+    count++; cycleCount++; cursor = new Date(pomEnd.getTime());
+    const isLong = (cycleCount % DEFAULTS.longAfter === 0);
+    const breakDur = isLong ? DEFAULTS.longBreak : DEFAULTS.shortBreak;
+    cursor = new Date(cursor.getTime() + msMin(breakDur));
+  }
+  return count;
+}
+
+/* progress chart */
+function drawProgressChart(done, total){
+  try{
+    const completed = Math.max(0, done || 0);
+    const totalNonZero = (total && total>0) ? total : (completed>0 ? completed : 1);
+    const remaining = Math.max(0, totalNonZero - completed);
+    const ctx = DOM.progressChart.getContext('2d');
+    if(!progressChart){
+      progressChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels:['انجام شده','باقی'], datasets:[{ data:[completed,remaining], backgroundColor:['rgba(139,92,246,0.95)','rgba(245,158,11,0.9)'], borderWidth:0 }]},
+        options: { cutout:'60%', responsive:true, maintainAspectRatio:false, animation:{ duration:240 }, plugins:{ legend:{ display:false } } }
+      });
+    } else {
+      progressChart.data.datasets[0].data = [completed, remaining];
+      progressChart.update();
+    }
+  }catch(e){ console.error(e); }
+}
+
+/* daily circular clock (optimized) */
+function buildDailyIntervals(nowDate){
+  const startOfCounting = new Date(nowDate); startOfCounting.setHours(6,0,0,0);
+  const endOfCounting = new Date(nowDate); endOfCounting.setHours(24,0,0,0);
+  const intervals = [];
+  for(const p of state.plan){
+    const s = new Date(p.startISO), e = new Date(p.endISO);
+    if(e <= startOfCounting || s >= endOfCounting) continue;
+    const cs = Math.max(s.getTime(), startOfCounting.getTime());
+    const ce = Math.min(e.getTime(), endOfCounting.getTime());
+    if(ce > cs) intervals.push({ start:cs, end:ce, type:p.type, label:p.label, isLongRest:!!p.isLongRest });
+  }
+  intervals.sort((a,b)=>a.start-b.start);
+  const combined = []; let cursor = startOfCounting.getTime();
+  for(const seg of intervals){
+    if(seg.start > cursor) combined.push({ start:cursor, end:seg.start, type:'idle', label:'خالی' });
+    combined.push(seg); cursor = seg.end;
+  }
+  if(cursor < endOfCounting.getTime()) combined.push({ start:cursor, end:endOfCounting.getTime(), type:'idle', label:'خالی' });
+  return { intervals: combined, windowStart: startOfCounting.getTime(), windowEnd: endOfCounting.getTime() };
+}
+
+function drawDailyClock(){
+  try{
+    const canvas = DOM.dailyClock;
+    if(!canvas) return;
+    const clientW = Math.max(260, Math.min(360, Math.floor(canvas.clientWidth || 320)));
+    if(!clientW) return;
+    if(clientW !== lastCanvasClientWidth){
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(clientW * dpr);
+      canvas.height = Math.floor(clientW * dpr);
+      lastCanvasClientWidth = clientW;
+    }
+    const dpr = window.devicePixelRatio || 1;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,canvas.width, canvas.height);
+
+    const W = lastCanvasClientWidth, cx = W/2, cy = W/2;
+    const outerR = Math.min(W,W)/2 - 14;
+    const ringWidth = Math.max(20, Math.round(outerR * 0.20));
+    const ringR = outerR - (ringWidth/2);
+
+    // background ring
+    ctx.beginPath(); ctx.arc(cx,cy,ringR,0,Math.PI*2); ctx.lineWidth = ringWidth; ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.stroke();
+
+    // ticks & labels
+    const startHour = 6, totalHours = 18;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    for(let h=0; h<=totalHours; h++){
+      const angle = -Math.PI/2 + (h/totalHours)*Math.PI*2;
+      const tx = cx + Math.cos(angle)*(outerR+16); const ty = cy + Math.sin(angle)*(outerR+16);
+      const hour = startHour + h;
+      const label = (hour === 24) ? '۰۰' : String(hour).padStart(2,'0');
+      ctx.fillStyle = (h%3===0) ? 'rgba(230,242,255,0.96)' : 'rgba(200,220,236,0.88)';
+      ctx.font = (h%3===0) ? '600 13px sans-serif' : '12px sans-serif';
+      ctx.fillText(label, tx, ty);
+      const t1x = cx + Math.cos(angle)*(ringR - ringWidth/2 - 6); const t1y = cy + Math.sin(angle)*(ringR - ringWidth/2 - 6);
+      const t2x = cx + Math.cos(angle)*(ringR - ringWidth/2 + 8); const t2y = cy + Math.sin(angle)*(ringR - ringWidth/2 + 8);
+      ctx.beginPath(); ctx.moveTo(t1x,t1y); ctx.lineTo(t2x,t2y); ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = (h%3===0)?2.2:1.2; ctx.stroke();
+    }
+
+    // segments
+    const nowDate = now();
+    const built = buildDailyIntervals(nowDate);
+    lastClockData = built;
+    const windowStart = built.windowStart, windowMs = built.windowEnd - built.windowStart;
+
+    for(const seg of built.intervals){
+      const a0 = -Math.PI/2 + ((seg.start - windowStart)/windowMs)*Math.PI*2;
+      const a1 = -Math.PI/2 + ((seg.end - windowStart)/windowMs)*Math.PI*2;
+      let base;
+      if(seg.type==='pomodoro') base = 'rgba(139,92,246,1)';
+      else if(seg.type==='rest') base = seg.isLongRest? 'rgba(245,158,11,1)' : 'rgba(6,191,166,1)';
+      else base = 'rgba(100,116,139,0.95)';
+      const isPast = seg.end <= nowDate.getTime();
+      const alpha = isPast ? 0.26 : 0.95;
+      ctx.beginPath(); ctx.arc(cx,cy,ringR,a0,a1,false); ctx.lineWidth = ringWidth - 2;
+      let col = base.replace(/rgba?\(([^)]+)\)/, (m,g1)=>`rgba(${g1.split(',').slice(0,3).join(',')},${alpha})`);
+      if(!col.includes('rgba')) col = `rgba(100,116,139,${alpha})`;
+      ctx.strokeStyle = col; ctx.lineCap='butt'; ctx.stroke();
+    }
+
+    // center disk
+    ctx.beginPath(); ctx.arc(cx,cy,ringR - ringWidth - 6,0,Math.PI*2); ctx.fillStyle='rgba(3,10,20,0.92)'; ctx.fill();
+
+    // now marker (prominent)
+    const nowMs = nowDate.getTime();
+    if(nowMs >= built.windowStart && nowMs <= built.windowEnd){
+      const angleNow = -Math.PI/2 + ((nowMs - built.windowStart)/windowMs)*Math.PI*2;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(angleNow)*ringR, cy + Math.sin(angleNow)*ringR, 14,0,Math.PI*2); ctx.fillStyle = 'rgba(139,92,246,0.08)'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(angleNow)*(ringR - ringWidth/2 - 6), cy + Math.sin(angleNow)*(ringR - ringWidth/2 - 6)); ctx.lineTo(cx + Math.cos(angleNow)*(ringR + ringWidth/2 + 2), cy + Math.sin(angleNow)*(ringR + ringWidth/2 + 2)); ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx + Math.cos(angleNow)*(ringR + ringWidth/2 + 2), cy + Math.sin(angleNow)*(ringR + ringWidth/2 + 2), 7,0,Math.PI*2); ctx.fillStyle='#ffffff'; ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + Math.cos(angleNow)*(ringR + ringWidth/2 + 2), cy + Math.sin(angleNow)*(ringR + ringWidth/2 + 2), 3.5,0,Math.PI*2); ctx.fillStyle='#060712'; ctx.fill();
+    }
+
+    // inner text
+    const jToday = (typeof moment !== 'undefined' && moment) ? moment().format('jYYYY/jMM/jDD') : (nowDate.toISOString().slice(0,10));
+    ctx.fillStyle='#e8f6ff'; ctx.font='700 14px sans-serif'; ctx.textAlign='center'; ctx.fillText(jToday, cx, cy-6);
+    ctx.font='600 12px sans-serif'; ctx.fillStyle='rgba(170,230,210,0.95)'; ctx.fillText('۶:۰۰ — ۲۴:۰۰', cx, cy+16);
+
+    // remaining poms & progress bar (top progress)
+    const remainingPoms = calculateRemainingPomsFrom(nowDate);
+    if(DOM.remainingPoms) DOM.remainingPoms.textContent = remainingPoms <= 0 ? 'تا پایان بازه (۶–۲۴) پومودورو کامل جا نمی‌گیرد.' : `می‌توانید تقریبا ${remainingPoms} پومودورو کامل دیگر انجام دهید.`;
+    if(built.windowStart && built.windowEnd){
+      const total = built.windowEnd - built.windowStart;
+      const passed = Math.min(Math.max(nowDate.getTime() - built.windowStart, 0), total);
+      const pct = Math.round((passed/total)*100);
+      if(DOM.topProgressBar) DOM.topProgressBar.style.width = pct + '%'; // small top progress
+    }
+  }catch(e){ console.error('drawDailyClock', e); }
+}
+
+/* canvas interactions */
+function canvasMoveHandler(e){
+  const canvas = DOM.dailyClock, tip = DOM.clockTooltip;
+  if(!canvas || !lastClockData || !tip) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const cx = rect.width/2, cy = rect.height/2;
+  const ang = Math.atan2(y - cy, x - cx); let frac = (ang + Math.PI/2) / (Math.PI*2); if(frac < 0) frac += 1;
+  const tAt = lastClockData.windowStart + frac * (lastClockData.windowEnd - lastClockData.windowStart);
+  const seg = lastClockData.intervals.find(s => (tAt >= s.start && tAt <= s.end)) || null;
+  if(seg){
+    tip.style.display='block'; tip.textContent = seg.label;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let left = e.pageX + 12, top = e.pageY - h - 12;
+    if(left + w + 10 > window.innerWidth) left = e.pageX - w - 12;
+    if(top < 8) top = e.pageY + 12;
+    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+  } else tip.style.display='none';
+}
+function canvasLeaveHandler(){ DOM.clockTooltip && (DOM.clockTooltip.style.display='none'); }
+function canvasClickHandler(e){
+  const canvas = DOM.dailyClock; if(!canvas || !lastClockData) return;
+  const rect = canvas.getBoundingClientRect(); const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const cx = rect.width/2, cy = rect.height/2; const ang = Math.atan2(y - cy, x - cx); let frac = (ang + Math.PI/2) / (Math.PI*2); if(frac < 0) frac += 1;
+  const tAt = lastClockData.windowStart + frac * (lastClockData.windowEnd - lastClockData.windowStart);
+  const seg = lastClockData.intervals.find(s => (tAt >= s.start && tAt <= s.end)) || null;
+  if(seg){
+    const startStr = formatHM(new Date(seg.start)); const endStr = formatHM(new Date(seg.end));
+    const dur = Math.round((seg.end - seg.start)/60000);
+    const typeLabel = seg.type === 'pomodoro' ? 'پومودورو' : (seg.type==='rest' ? (seg.isLongRest?'استراحت بلند':'استراحت کوتاه') : 'خالی');
+    DOM.segTitle.textContent = seg.label || typeLabel;
+    DOM.segMeta.innerHTML = `${typeLabel} — ${dur} دقیقه<br>${startStr} — ${endStr}`;
+    document.getElementById('segmentPanel').style.display = 'block';
+  }
+}
+function hideSegmentPanel(){ document.getElementById('segmentPanel').style.display='none'; }
+
+/* notifications */
+function notifyDesktop(title, body=''){ try{ if('Notification' in window){ if(Notification.permission === 'granted') new Notification(title, { body }); else if(Notification.permission !== 'denied') Notification.requestPermission().then(()=>{}); } }catch(e){} }
+
+/* update everything */
+function updateAllCharts(){ const done = state.plan.filter(p => p.type==='pomodoro' && new Date(p.endISO) <= now()).length; drawProgressChart(done, state.totalPoms || 0); drawDailyClock(); }
+
+/* plan fit & suggestion (suggest button removed from UI — this function kept) */
+function checkPlanFitAndWarn(){
+  DOM.sleepWarning.style.display='none';
+  if(!state.plan.length) return;
+  const lastEnd = new Date(state.plan[state.plan.length-1].endISO);
+  if(lastEnd.getDate() !== new Date().getDate() || lastEnd.getTime() > new Date().setHours(24,0,0,0)){
+    DOM.sleepWarning.style.display='block'; DOM.sleepWarning.textContent = 'هشدار: برنامه ممکن است تا نیمه‌شب جا نشود.';
+  } else {
+    const nowDate = now(); const fit = calculateRemainingPomsFrom(nowDate);
+    const plannedRemaining = state.plan.filter(p => p.type==='pomodoro' && new Date(p.endISO) > nowDate).length;
+    if(plannedRemaining > fit + 2){ DOM.sleepWarning.style.display='block'; DOM.sleepWarning.textContent = 'تذکر: ممکن است نتوانید همه پومودوروهای باقی‌مانده را تا پایان روز انجام دهید.'; }
+    else DOM.sleepWarning.style.display='none';
+  }
+}
+
+/* keyboard */
+function setupShortcuts(){
+  window.addEventListener('keydown', (e)=>{
+    const tag = document.activeElement && document.activeElement.tagName.toLowerCase();
+    if(tag === 'input' || tag === 'textarea') return;
+    if(e.code === 'Space'){ e.preventDefault(); if(state.running){ stopLiveTracking(); DOM.currentStepText.textContent='متوقف شد'; DOM.countdown.textContent='--:--:--'; } else { if(!state.plan.length){ alert('ابتدا برنامه را بساز.'); return; } startLiveTracking(); } }
+    else if(e.key === 'n' || e.key === 'N'){ e.preventDefault(); fastFinishCurrent(); }
+  });
+}
+
+/* event handlers (safe checks for removed buttons) */
+function setupEventHandlers(){
+  if(DOM.buildBtn) DOM.buildBtn.addEventListener('click', ()=> {
+    const count = parseInt(DOM.pomCount.value,10); const start = DOM.startTime.value;
+    if(!count || !start) return alert('لطفاً تعداد و ساعت شروع را وارد کن.');
+    state.plan = buildPlan(count, start); state.totalPoms = count; state.running=false; state.notified={}; state.currentStepIndex=-1;
+    saveState(); renderTable(); updateScheduleBlock(); updateAllCharts(); DOM.timerCard.style.display='none'; checkPlanFitAndWarn();
+    alert('برنامه ساخته شد — برای شروع دکمه شروع/ادامه را بزن.');
+  });
+
+  if(DOM.startBtn) DOM.startBtn.addEventListener('click', ()=> { if(!state.plan.length){ alert('ابتدا برنامه را بساز.'); return; } if(Notification) Notification.requestPermission().catch(()=>{}); startLiveTracking(); });
+  if(DOM.pauseBtn) DOM.pauseBtn.addEventListener('click', ()=> { stopLiveTracking(); DOM.currentStepText.textContent='متوقف شد'; DOM.countdown.textContent='--:--:--'; });
+
+  if(DOM.toggleAllRests) DOM.toggleAllRests.addEventListener('click', ()=> { for(let i=0;i<state.plan.length;i++) if(state.plan[i].type==='rest'){ state.plan[i].isLongRest = !state.plan[i].isLongRest; state.plan[i].duration = state.plan[i].isLongRest ? DEFAULTS.longBreak : DEFAULTS.shortBreak; state.plan[i].label = state.plan[i].isLongRest ? 'استراحت بلند 🟥' : 'استراحت کوتاه'; } recomputeTimesFromStart(); saveState(); renderTable(); updateScheduleBlock(); updateAllCharts(); checkPlanFitAndWarn(); });
+
+  if(DOM.addTimeOffBtn) DOM.addTimeOffBtn.addEventListener('click', ()=> { if(document.getElementById('timeOffModal')){ DOM.toStartTime.value=''; DOM.toMinutes.value=''; DOM.toLabel.value=''; document.getElementById('timeOffModal').style.display='flex'; }});
+  if(DOM.toCancel) DOM.toCancel.addEventListener('click', ()=> { const m = document.getElementById('timeOffModal'); if(m) m.style.display='none'; });
+  if(DOM.toSave) DOM.toSave.addEventListener('click', ()=> { const t = DOM.toStartTime.value; const m = parseInt(DOM.toMinutes.value,10); const label = DOM.toLabel.value || 'Time Off'; if(!t || isNaN(m) || m<=0){ alert('زمان شروع یا مدت نامعتبر'); return; } addTimeOffAt(t.trim(), m, label.trim()); document.getElementById('timeOffModal').style.display='none'; checkPlanFitAndWarn(); });
+
+  if(DOM.shiftScheduleBtn) DOM.shiftScheduleBtn.addEventListener('click', ()=> { const minutesRaw = prompt('چند دقیقه شیفت بدیم به کل برنامه؟ (مثبت برای جلو بردن)'); const minutes = parseInt(minutesRaw,10); if(isNaN(minutes)) return; shiftEntireScheduleBy(minutes); checkPlanFitAndWarn(); });
+
+  if(DOM.fastFinishBtn) DOM.fastFinishBtn.addEventListener('click', ()=> fastFinishCurrent());
+
+  if(DOM.resetBtn) DOM.resetBtn.addEventListener('click', ()=> { if(!confirm('آیا مطمئنی همه چیز باید پاک شود؟')) return; state = { plan:[], totalPoms:0, running:false, notified:{}, stats:{}, currentStepIndex:-1 }; saveState(); renderTable(); updateScheduleBlock(); updateAllCharts(); stopLiveTracking(); DOM.timerCard.style.display='none'; });
+
+  if(DOM.addTaskBtn) DOM.addTaskBtn.addEventListener('click', ()=> { addTask(DOM.taskInput.value); DOM.taskInput.value=''; });
+  if(DOM.taskInput) DOM.taskInput.addEventListener('keydown', (e)=> { if(e.key==='Enter'){ addTask(DOM.taskInput.value); DOM.taskInput.value=''; } });
+
+  applySoundToggleUI();
+
+  if(DOM.dailyClock){
+    DOM.dailyClock.addEventListener('mousemove', canvasMoveHandler);
+    DOM.dailyClock.addEventListener('mouseleave', canvasLeaveHandler);
+    DOM.dailyClock.addEventListener('click', canvasClickHandler);
+  }
+
+  if(DOM.segClose) DOM.segClose.addEventListener('click', hideSegmentPanel);
+
+  // periodic safe redraw: clock text and canvas only
+  setInterval(()=> {
+    const nowDate = now();
+    const jToday = (typeof moment !== 'undefined' && moment) ? moment().format('jYYYY/jMM/jDD') : (nowDate.toISOString().slice(0,10));
+    if(DOM.dailyPersianDate) DOM.dailyPersianDate.textContent = jToday;
+    if(DOM.dailyClockTime) DOM.dailyClockTime.textContent = formatHMS(nowDate);
+    drawDailyClock();
+  }, 1000);
+
+  // resize debounce (redraw visuals)
+  let rto = null;
+  window.addEventListener('resize', ()=> { clearTimeout(rto); rto = setTimeout(()=> { try{ if(progressChart){ progressChart.resize(); progressChart.update(); } }catch(e){} drawDailyClock(); }, 220); });
+
+  setupShortcuts();
+}
+
+/* init */
+document.addEventListener('DOMContentLoaded', ()=> {
+  DOM.soundToggle = document.getElementById('soundToggle');
+  DOM.resetBtn = document.getElementById('resetBtn');
+  DOM.pomCount = document.getElementById('pomCount');
+  DOM.startTime = document.getElementById('startTime');
+  DOM.buildBtn = document.getElementById('buildBtn');
+  DOM.startBtn = document.getElementById('startBtn');
+  DOM.pauseBtn = document.getElementById('pauseBtn');
+  DOM.toggleAllRests = document.getElementById('toggleAllRests');
+  DOM.addTimeOffBtn = document.getElementById('addTimeOffBtn');
+  DOM.shiftScheduleBtn = document.getElementById('shiftScheduleBtn');
+  DOM.fastFinishBtn = document.getElementById('fastFinishBtn');
+  DOM.scheduleTable = document.getElementById('scheduleTable');
+  DOM.scheduleBlock = document.getElementById('scheduleBlock');
+  DOM.timerCard = document.getElementById('timerCard');
+  DOM.currentStepText = document.getElementById('currentStepText');
+  DOM.countdown = document.getElementById('countdown');
+  DOM.nextInfo = document.getElementById('nextInfo');
+  DOM.tasksList = document.getElementById('tasksList');
+  DOM.addTaskBtn = document.getElementById('addTaskBtn');
+  DOM.taskInput = document.getElementById('taskInput');
+  DOM.toStartTime = document.getElementById('toStartTime');
+  DOM.toMinutes = document.getElementById('toMinutes');
+  DOM.toLabel = document.getElementById('toLabel');
+  DOM.toCancel = document.getElementById('toCancel');
+  DOM.toSave = document.getElementById('toSave');
+  DOM.dailyPersianDate = document.getElementById('dailyPersianDate');
+  DOM.dailyClockTime = document.getElementById('dailyClockTime');
+  DOM.dailyClock = document.getElementById('dailyClock');
+  DOM.progressChart = document.getElementById('progressChart');
+  DOM.remainingPoms = document.getElementById('remainingPoms');
+  DOM.clockTooltip = document.getElementById('clockTooltip');
+  DOM.topProgressBar = document.getElementById('topProgressBar');
+  DOM.scheduleWrap = document.getElementById('scheduleWrap');
+  DOM.segTitle = document.getElementById('segTitle');
+  DOM.segMeta = document.getElementById('segMeta');
+  DOM.segClose = document.getElementById('segClose');
+  DOM.sleepWarning = document.getElementById('sleepWarning');
+
+  try{
+    loadState(); loadTasks(); setupEventHandlers();
+    if(state.plan && state.plan.length){
+      renderTable(); updateScheduleBlock(); updateAllCharts();
+      if(state.running) startLiveTracking();
+      checkPlanFitAndWarn();
+    } else { drawProgressChart(0,0); drawDailyClock(); }
+    if('Notification' in window && Notification.permission !== 'granted') Notification.requestPermission().catch(()=>{});
+  }catch(e){ console.error('init error', e); }
+});
+
+/* save */
+window.addEventListener('beforeunload', ()=> saveState());
+</script>
+<!-- INSERT: قطعه 1 (put once, global scope, before </body>) -->
+<script>
+/* --- Capacitor Local Notifications initializer & helpers --- */
+window.__capLocalNotif = null;
+
+async function initLocalNotifPlugin(){
+  if(window.capLocalNotif) return window.capLocalNotif;
+  try {
+    const mod = await import('@capacitor/local-notifications');
+    window.__capLocalNotif = mod.LocalNotifications || mod;
+    console.log('LocalNotifications plugin loaded.');
+    return window.__capLocalNotif;
+  } catch (e) {
+    console.warn('LocalNotifications plugin not available in this runtime.', e);
+    window.__capLocalNotif = null;
+    return null;
+  }
+}
+
+async function requestLocalNotificationPermission(){
+  const plugin = await initLocalNotifPlugin();
+  if(plugin && plugin.requestPermissions){
+    try {
+      const perm = await plugin.requestPermissions();
+      console.log('Native notif permission:', perm);
+      return perm;
+    } catch(e){
+      console.warn('requestPermissions error', e);
+    }
+  }
+  // browser fallback
+  if('Notification' in window){
+    try { await Notification.requestPermission(); } catch(e){}
+  }
+}
+
+/* simple stable hash -> int */
+function __hashCode(str){
+  let h = 0;
+  if(!str) return 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h) + str.charCodeAt(i);
+    h |= 0;
+  }
+  return h;
+}
+
+/* make sure we ask permission on load */
+document.addEventListener('DOMContentLoaded', () => {
+  // don't block — best-effort
+  requestLocalNotificationPermission().catch(()=>{});
+});
+</script>
+<!-- INSERT: قطعه 1 (put once, global scope, before </body>) -->
+<script>
+/* --- Capacitor Local Notifications initializer & helpers --- */
+window.__capLocalNotif = null;
+
+async function initLocalNotifPlugin(){
+  if(window.capLocalNotif) return window.capLocalNotif;
+  try {
+    const mod = await import('@capacitor/local-notifications');
+    window.__capLocalNotif = mod.LocalNotifications || mod;
+    console.log('LocalNotifications plugin loaded.');
+    return window.__capLocalNotif;
+  } catch (e) {
+    console.warn('LocalNotifications plugin not available in this runtime.', e);
+    window.__capLocalNotif = null;
+    return null;
+  }
+}
+
+async function requestLocalNotificationPermission(){
+  const plugin = await initLocalNotifPlugin();
+  if(plugin && plugin.requestPermissions){
+    try {
+      const perm = await plugin.requestPermissions();
+      console.log('Native notif permission:', perm);
+      return perm;
+    } catch(e){
+      console.warn('requestPermissions error', e);
+    }
+  }
+  // browser fallback
+  if('Notification' in window){
+    try { await Notification.requestPermission(); } catch(e){}
+  }
+}
+
+/* simple stable hash -> int */
+function __hashCode(str){
+  let h = 0;
+  if(!str) return 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h) + str.charCodeAt(i);
+    h |= 0;
+  }
+  return h;
+}
+
+/* make sure we ask permission on load */
+document.addEventListener('DOMContentLoaded', () => {
+  // don't block — best-effort
+  requestLocalNotificationPermission().catch(()=>{});
+});
+</script>
+<!-- INSERT: قطعه 3 (cancel & test) -->
+<script>
+async function cancelAllLocalNotifications(){
+  const plugin = await initLocalNotifPlugin();
+  if(plugin && plugin.cancel){
+    try{
+      await plugin.cancel({ notifications: [] });
+      console.log('Canceled native notifications');
+      alert('نوتیف‌های native پاک شدند.');
+      return;
+    }catch(e){
+      console.error('cancel error', e);
+      alert('خطا در حذف نوتیف‌ها: ' + (e.message || e));
+      return;
+    }
+  }
+  // browser fallback: easiest is to reload page (or track timeouts manually)
+  alert('در مرورگر: رفرش صفحه تایمرهای تست را پاک می‌کند.');
+  location.reload();
+}
+
+async function scheduleQuickTestNotification(){
+  const plugin = await initLocalNotifPlugin();
+  const title = 'تست نوتیف';
+  const body = 'این یک نوتیف تستی است (5s)';
+  if(plugin && plugin.schedule){
+    try{
+      if(plugin.cancel) await plugin.cancel({ notifications: [] });
+      await plugin.schedule({ notifications: [{ id: 999999, title, body, schedule: { at: new Date(Date.now()+5000).toISOString() } }] });
+      alert('نوتیف تست در 5 ثانیه زمان‌بندی شد (native).');
+      return;
+    }catch(e){
+      console.warn('native test failed', e);
+    }
+  }
+  // browser fallback
+  if('Notification' in window){
+    const p = await Notification.requestPermission();
+    if(p === 'granted'){
+      setTimeout(()=> new Notification(title, { body }), 5000);
+      alert('نوتیف تست در 5 ثانیه نمایش داده خواهد شد (مرورگر).');
+    } else {
+      alert('مجوز نمایش نوتیف در مرورگر داده نشده.');
+    }
+  } else alert('پشتیبانی از Notification در این مرورگر وجود ندارد.');
+}
+</script>
+</body>
+</html>
