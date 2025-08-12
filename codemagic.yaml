@@ -1,40 +1,82 @@
 workflows:
-  native-android:
-    name: Native Android
+  android-capacitor:
+    name: Android (Capacitor) build
     max_build_duration: 120
-    instance_type: mac_mini_m2
     environment:
-      android_signing:
-        - keystore_reference
-      groups:
-        - google_play
-      vars:
-        PACKAGE_NAME: "io.codemagic.androidquicksample"
+      # Node version to use on Codemagic build machine
+      node: 18
     scripts:
-      - name: Set Android SDK location
+      - name: Print environment
         script: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
-      - name: Build Android release
+          #!/bin/bash
+          set -e
+          echo "Node version:"
+          node -v || true
+          echo "NPM version:"
+          npm -v || true
+
+      - name: Install node dependencies
         script: |
-          LATEST_GOOGLE_PLAY_BUILD_NUMBER=$(google-play get-latest-build-number --package-name "$PACKAGE_NAME")
-          if [ -z LATEST_BUILD_NUMBER ]; then
-              # fallback in case no build number was found from google play. Alternatively, you can `exit 1` to fail the build
-              UPDATED_BUILD_NUMBER=$BUILD_NUMBER
+          #!/bin/bash
+          set -e
+          # prefer CI if lockfile exists
+          if [ -f package-lock.json ]; then
+            npm ci
           else
-              UPDATED_BUILD_NUMBER=$(($LATEST_GOOGLE_PLAY_BUILD_NUMBER + 1))
+            npm install
           fi
-          ./gradlew bundleRelease -PversionCode=$UPDATED_BUILD_NUMBER -PversionName=1.0.$UPDATED_BUILD_NUMBER
+          # ensure capacitor & plugin packages exist
+          npm install @capacitor/android @capacitor/local-notifications @capacitor/cli --no-audit --no-fund
+
+      - name: Safety: replace smallIcon if needed
+        script: |
+          #!/bin/bash
+          set -e
+          if grep -q "smallIcon: 'ic_stat_notify'" www/index.html 2>/dev/null; then
+            sed -i "s/smallIcon: 'ic_stat_notify'/smallIcon: 'ic_launcher'/g" www/index.html || true
+            echo "Replaced smallIcon -> ic_launcher"
+          else
+            echo "No smallIcon replacement needed"
+          fi
+
+      - name: Add android platform and sync Capacitor
+        script: |
+          #!/bin/bash
+          set -e
+          # Add android platform if missing (ignore error if exists)
+          npx cap add android || true
+          # Copy web assets and sync plugins/platforms
+          npx cap sync android
+
+      - name: Ensure POST_NOTIFICATIONS permission in AndroidManifest
+        script: |
+          #!/bin/bash
+          set -e
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if [ -f "$MANIFEST" ]; then
+            if ! grep -q "android.permission.POST_NOTIFICATIONS" "$MANIFEST"; then
+              echo "Adding POST_NOTIFICATIONS permission to AndroidManifest.xml"
+              sed -i '/<manifest /a\    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' "$MANIFEST" || true
+            else
+              echo "POST_NOTIFICATIONS already present"
+            fi
+          else
+            echo "AndroidManifest.xml not found yet (npx cap add should create android/)."
+          fi
+
+      - name: Build Debug APK (Gradle)
+        script: |
+          #!/bin/bash
+          set -e
+          cd android
+          # print gradle/Java versions for debugging
+          ./gradlew -v
+          ./gradlew assembleDebug --no-daemon
+
     artifacts:
-      - app/build/outputs/**/*.aab
-    publishing:
-      email:
-        recipients:
-          - user_1@example.com
-          - user_2@example.com
-        notify:
-          success: true
-          failure: false
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal
-        submit_as_draft: true
+      - android/app/build/outputs/apk/debug/app-debug.apk
+
+    cache:
+      - node_modules
+      - ~/.gradle
+      - android/.gradle
