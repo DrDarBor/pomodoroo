@@ -1,91 +1,19 @@
-workflows:
-  android-capacitor:
-    name: Android (Capacitor) build
-    max_build_duration: 120
-    environment:
-      node: 18
-    scripts:
-      - name: Print environment
-        script: |
-          #!/bin/bash
-          set -e
-          echo "Node version:"
-          node -v || true
-          echo "NPM version:"
-          npm -v || true
-
-      - name: Install node dependencies
-        script: |
-          #!/bin/bash
-          set -e
-          if [ -f package-lock.json ]; then
-            npm ci --legacy-peer-deps
-          else
-            npm install --legacy-peer-deps
-          fi
-          npm install @capacitor/android @capacitor/local-notifications @capacitor/cli --no-audit --no-fund --legacy-peer-deps
-
-      - name: "Create capacitor.config.json if missing"
-        script: |
-          #!/bin/bash
-          set -e
-          if [ ! -f capacitor.config.json ]; then
-            echo "Creating capacitor.config.json..."
-            cat <<EOL > capacitor.config.json
-{
-  "appId": "com.example.pomodoro",
-  "appName": "Pomodoro",
-  "webDir": "www",
-  "bundledWebRuntime": false
-}
-EOL
+# Find the resulting APK
+          APK_PATH=$(find app/build/outputs/apk/release -name "*release*.apk" | head -n 1 || true)
+          if [ -z "$APK_PATH" ]; then
+            echo "Release APK not found in expected location. Listing directory for debug:"
+            ls -R app/build/outputs || true
+            exit 1
           fi
 
-      - name: "Safety: replace smallIcon if needed"
-        script: |
-          #!/bin/bash
-          set -e
-          if grep -q "smallIcon: 'ic_stat_notify'" www/index.html 2>/dev/null; then
-            sed -i "s/smallIcon: 'ic_stat_notify'/smallIcon: 'ic_launcher'/g" www/index.html || true
-            echo "Replaced smallIcon -> ic_launcher"
-          else
-            echo "No smallIcon replacement needed"
-          fi
-
-      - name: Add android platform and sync Capacitor
-        script: |
-          #!/bin/bash
-          set -e
-          npx cap init "Pomodoro" "com.example.pomodoro" --web-dir=www || true
-          npx cap add android || true
-          npx cap sync android
-
-      - name: Ensure POST_NOTIFICATIONS permission in AndroidManifest
-        script: |
-          #!/bin/bash
-          set -e
-          MANIFEST=android/app/src/main/AndroidManifest.xml
-          if [ -f "$MANIFEST" ]; then
-            if ! grep -q "android.permission.POST_NOTIFICATIONS" "$MANIFEST"; then
-              echo "Adding POST_NOTIFICATIONS permission to AndroidManifest.xml"
-              sed -i '/<manifest /a\    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' "$MANIFEST" || true
-            else
-              echo "POST_NOTIFICATIONS already present"
-            fi
-          else
-            echo "AndroidManifest.xml not found yet."
-          fi
-
-      - name: Build Debug APK (Gradle)
-        script: |
-          #!/bin/bash
-          set -e
-          cd android
-          ./gradlew -v
-          ./gradlew assembleDebug --no-daemon
+          echo "Release APK produced: $APK_PATH"
+          # Copy to top-level artifacts folder so Codemagic picks it up
+          mkdir -p ../artifacts
+          cp "$APK_PATH" ../artifacts/app-release.apk
+          echo "Copied to ../artifacts/app-release.apk"
 
     artifacts:
-      - android/app/build/outputs/apk/debug/app-debug.apk
+      - artifacts/app-release.apk
 
     cache:
       cache_paths:
