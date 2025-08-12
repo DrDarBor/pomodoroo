@@ -3,7 +3,6 @@ workflows:
     name: Android (Capacitor) build
     max_build_duration: 120
     environment:
-      # Node version to use on Codemagic build machine
       node: 18
     scripts:
       - name: Print environment
@@ -19,14 +18,28 @@ workflows:
         script: |
           #!/bin/bash
           set -e
-          # prefer CI if lockfile exists
           if [ -f package-lock.json ]; then
             npm ci --legacy-peer-deps
           else
             npm install --legacy-peer-deps
           fi
-          # ensure capacitor & plugin packages exist
           npm install @capacitor/android @capacitor/local-notifications @capacitor/cli --no-audit --no-fund --legacy-peer-deps
+
+      - name: "Create capacitor.config.json if missing"
+        script: |
+          #!/bin/bash
+          set -e
+          if [ ! -f capacitor.config.json ]; then
+            echo "Creating capacitor.config.json..."
+            cat <<EOL > capacitor.config.json
+{
+  "appId": "com.example.pomodoro",
+  "appName": "Pomodoro",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
+EOL
+          fi
 
       - name: "Safety: replace smallIcon if needed"
         script: |
@@ -43,9 +56,8 @@ workflows:
         script: |
           #!/bin/bash
           set -e
-          # Add android platform if missing (ignore error if exists)
+          npx cap init "Pomodoro" "com.example.pomodoro" --web-dir=www || true
           npx cap add android || true
-          # Copy web assets and sync plugins/platforms
           npx cap sync android
 
       - name: Ensure POST_NOTIFICATIONS permission in AndroidManifest
@@ -61,7 +73,7 @@ workflows:
               echo "POST_NOTIFICATIONS already present"
             fi
           else
-            echo "AndroidManifest.xml not found yet (npx cap add should create android/)."
+            echo "AndroidManifest.xml not found yet."
           fi
 
       - name: Build Debug APK (Gradle)
@@ -69,7 +81,6 @@ workflows:
           #!/bin/bash
           set -e
           cd android
-          # print gradle/Java versions for debugging
           ./gradlew -v
           ./gradlew assembleDebug --no-daemon
 
