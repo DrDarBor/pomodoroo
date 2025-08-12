@@ -6,7 +6,7 @@
             exit 1
           fi
 
-          echo "Release APK produced: $APK_PATH"
+          echo "Release APK produced: \$APK_PATH"
           # Copy to top-level artifacts folder so Codemagic picks it up
           mkdir -p ../artifacts
           cp "$APK_PATH" ../artifacts/app-release.apk
