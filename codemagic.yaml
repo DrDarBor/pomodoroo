@@ -28,7 +28,7 @@ workflows:
           # ensure capacitor & plugin packages exist
           npm install @capacitor/android @capacitor/local-notifications @capacitor/cli --no-audit --no-fund
 
-      - name: Safety: replace smallIcon if needed
+      - name: "Safety: replace smallIcon if needed"
         script: |
           #!/bin/bash
           set -e
